@@ -53,22 +53,20 @@ const drawWord = (word) => {
 
 // Seeded random number generator
 const seed = Date.now();
-const seededRandom = s => () => (2 ** 31 - 1 & (s = Math.imul(48271, s + seed))) / 2 ** 31;
-
-// World settings that affect gameplay
-const world = {
-    floorWidth: 6
+const seededRandom = s => {
+    const random = () => (2 ** 31 - 1 & (s = Math.imul(48271, s + seed))) / 2 ** 31;
+    for (let i = 0; i < 10; i++) {
+        random();
+    }
+    return random;
 };
 
-// Floor system for procedural generation
-let floors = [];
-
-// Things that need to be generated on a certain floor
-const specials = {
-    0: {
-        planet: false,
-        spaceship: false
-    }
+// Current level data
+let level = {
+    size: 12,
+    floorWidth: 6,
+    populated: false,
+    wind: 0 // TODO
 };
 
 const camera = {
@@ -97,7 +95,7 @@ const player = {
     },
     keep: true,
     position: { x: 0, y: 0 },
-    velocity: { x: .01, y: 2 },
+    velocity: { x: 0, y: 2 },
     damping: 0,
     rotation: 0,
     rotationalVelocity: 3,
@@ -133,25 +131,26 @@ const update = () => {
     if (input.pause || input.gameOver) {
         return;
     }
+    
+    // Populate new level
+    if (!level.populated) {
+        for (let y = 0; y < level.size; y++) {
+            const random = seededRandom(y);
 
-    // Find active floors
-    const previousFloors = floors;
-    floors = [];
-    const half = camera.view.size / 2;
-    const start = camera.position.y - half;
-    const end = camera.position.y + half;
-    const overscan = 2;
-    for (let y = start - overscan; y <= end + overscan; y++) {
-        floors.push(Math.floor(y));
-    }
-
-    // Generate new floors
-    const newFloors = floors.filter(f => !previousFloors.includes(f));
-    for (let floor of newFloors) {
-        const random = seededRandom(floor);
-        const special = specials[floor];
-
-
+            if (random() < 0.3) {
+                entities.push({
+                    sprite: {
+                        imageId: "bush",
+                        scale: 1
+                    },
+                    position: { x: (random() - 0.5) * (level.floorWidth - 2), y: y - 0.3 },
+                    collision: {
+                        radius: .5,
+                        attach: true
+                    }
+                });
+            }
+        }
     }
 
     // Camera
@@ -173,7 +172,7 @@ const update = () => {
         player.player.bounce = 1 - Math.abs(Math.sin(time * 0.003));
 
         // Spawn particles
-        for (let i = 1; i < deltaMs * player.player.bounce * 0.3; i++) {
+        for (let i = 1; i < deltaMs * player.player.bounce * 0.2; i++) {
             const direction = Vec.rotate({ x: 0, y: -1 }, (Math.random() - 0.5) * 3);
             entities.push({
                 particle: {
@@ -183,7 +182,7 @@ const update = () => {
                 age: 0,
                 lifetime: Math.random() * 300 + 200,
                 position: Vec.add(player.position, Vec.scale(direction, Math.random() * 0.5)),
-                velocity: Vec.scale(direction, Math.random() * 1 + 0.1),
+                velocity: Vec.scale(direction, Math.random() * 1.2 + 0.2),
                 collision: {
                     radius: 1,
                     attach: false
@@ -296,13 +295,13 @@ const draw = () => {
     const topLeft = Vec.add(camera.position, Vec.scale({ x: 1, y: 1 }, -camera.view.size / 2));
     ctx.translate(-topLeft.x, -topLeft.y);
 
-    // Draw steps
-    for (let floor of floors) {
-        const random = seededRandom(floor);
-        for (let x = 0; x < world.floorWidth; x++) {
+    // Draw floors
+    for (let y = 0; y < level.size; y++) {
+        const random = seededRandom(y);
+        for (let x = 0; x < level.floorWidth; x++) {
             let type = "steps";
             let flip = random() > 0.5;
-            if (x === 0 || x === world.floorWidth - 1) {
+            if (x === 0 || x === level.floorWidth - 1) {
                 type = "wall";
                 flip = x !== 0;
             }
@@ -311,7 +310,7 @@ const draw = () => {
             const image = document.getElementById(imageId);
 
             ctx.save();
-            ctx.translate(x - world.floorWidth / 2, floor);
+            ctx.translate(x - level.floorWidth / 2, y);
             ctx.scale(flip ? -1 : 1, 1);
             ctx.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, 0, 0, flip ? -1 : 1, 1);
             ctx.restore();
