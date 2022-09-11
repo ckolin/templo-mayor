@@ -10,13 +10,6 @@ const dbg = (...objs) => {
     }
 };
 
-const input = {
-    left: false,
-    right: false,
-    pause: false,
-    gameOver: false
-};
-
 // APOLLO palette by AdamCYounis (https://lospec.com/palette-list/apollo)
 const colors = [
     "#172038", "#253a5e", "#3c5e8b", "#4f8fba", "#73bed3", "#a4dddb",
@@ -55,16 +48,23 @@ const drawWord = (word) => {
 const seed = Date.now();
 const seededRandom = s => {
     const random = () => (2 ** 31 - 1 & (s = Math.imul(48271, s + seed))) / 2 ** 31;
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 20; i++) {
         random();
     }
     return random;
 };
 
+const input = {
+    left: false,
+    right: false,
+    pause: false,
+    gameOver: false
+};
+
 // Current level data
 let level = {
-    size: 12,
-    floorWidth: 6,
+    size: 8,
+    floorWidth: 2,
     populated: false,
     wind: 0 // TODO
 };
@@ -82,7 +82,6 @@ const camera = {
 const player = {
     sprite: {
         imageId: "player_falling",
-        scale: 1,
         animation: {
             frames: 2,
             delay: 500,
@@ -96,13 +95,11 @@ const player = {
     keep: true,
     position: { x: 0, y: 0 },
     velocity: { x: 0, y: 2 },
-    damping: 0,
+    damping: 0.1,
+    gravity: 0.2,
     rotation: 0,
     rotationalVelocity: 3,
-    collision: {
-        radius: .5,
-        attach: true
-    }
+    collision: { radius: .5 }
 };
 
 let entities = [
@@ -131,7 +128,7 @@ const update = () => {
     if (input.pause || input.gameOver) {
         return;
     }
-    
+
     // Populate new level
     if (!level.populated) {
         for (let y = 0; y < level.size; y++) {
@@ -139,18 +136,14 @@ const update = () => {
 
             if (random() < 0.3) {
                 entities.push({
-                    sprite: {
-                        imageId: "bush",
-                        scale: 1
-                    },
-                    position: { x: (random() - 0.5) * (level.floorWidth - 2), y: y - 0.3 },
-                    collision: {
-                        radius: .5,
-                        attach: true
-                    }
+                    sprite: { imageId: "bush" },
+                    position: { x: (random() - 0.5) * 2 * level.floorWidth, y: y + 0.2 },
+                    collision: { radius: .3 }
                 });
             }
         }
+
+        level.populated = true;
     }
 
     // Camera
@@ -163,32 +156,25 @@ const update = () => {
     );
 
     // Player movement
-    if (!player.attachedTo) {
-        if (input.left || input.right) {
+    if (input.left || input.right) {
 
-        }
+    }
 
-        // Bounce
-        player.player.bounce = 1 - Math.abs(Math.sin(time * 0.003));
-
-        // Spawn particles
-        for (let i = 1; i < deltaMs * player.player.bounce * 0.2; i++) {
-            const direction = Vec.rotate({ x: 0, y: -1 }, (Math.random() - 0.5) * 3);
-            entities.push({
-                particle: {
-                    color: colors[Math.floor(Math.random() * 3 + 14)],
-                    size: Math.random() * 0.1 + 0.1
-                },
-                age: 0,
-                lifetime: Math.random() * 300 + 200,
-                position: Vec.add(player.position, Vec.scale(direction, Math.random() * 0.5)),
-                velocity: Vec.scale(direction, Math.random() * 1.2 + 0.2),
-                collision: {
-                    radius: 1,
-                    attach: false
-                }
-            });
-        }
+    // Player bounce
+    player.player.bounce = 1 - Math.abs(Math.sin(time * 0.003));
+    for (let i = 1; i < deltaMs * player.player.bounce * 0.2; i++) {
+        const direction = Vec.rotate({ x: 0, y: -1 }, (Math.random() - 0.5) * 3);
+        entities.push({
+            particle: {
+                color: colors[Math.floor(Math.random() * 3 + 41)],
+                size: Math.random() * 0.1 + 0.05
+            },
+            age: 0,
+            lifetime: Math.random() * 300 + 200,
+            position: Vec.add(player.position, Vec.scale(direction, Math.random() * 0.5)),
+            velocity: Vec.scale(direction, Math.random() * 1.2 + 0.2),
+            collision: { radius: 1 }
+        });
     }
 
     // Player collision
@@ -202,7 +188,13 @@ const update = () => {
             zzfx(...[1.55, , 309, , .08, .18, 3, 1.6, -6.7, , , , , .3, , .1, .05, .69, .03]);
 
             player.velocity = Vec.scale(player.velocity, 0.8);
-            entity.sprite.imageId = "bush_dead";
+            entity.sprite = {
+                imageId: "bush_dead",
+                animation: {
+                    frames: 2,
+                    delay: 400
+                }
+            };
 
             // Spawn particles
             for (let i = 1; i < 50; i++) {
@@ -217,11 +209,8 @@ const update = () => {
                     position: Vec.add(entity.position, Vec.scale(direction, Math.random() * 0.5)),
                     velocity: Vec.scale(direction, Math.random() * 1.5 + 0.2),
                     damping: 2,
-                    gravity: 1,
-                    collision: {
-                        radius: 1,
-                        attach: false
-                    }
+                    gravity: 0.5,
+                    collision: { radius: 1 }
                 });
             }
         }
@@ -234,11 +223,7 @@ const update = () => {
 
     // Velocity
     for (let entity of entities.filter(e => e.velocity)) {
-        if (entity.attachedTo) {
-            entity.position = Vec.add(entity.position, Vec.scale(entity.attachedTo.velocity, delta));
-        } else {
-            entity.position = Vec.add(entity.position, Vec.scale(entity.velocity, delta));
-        }
+        entity.position = Vec.add(entity.position, Vec.scale(entity.velocity, delta));
     }
 
     // Spring
@@ -254,17 +239,7 @@ const update = () => {
 
     // Rotation
     for (let entity of entities.filter(e => e.rotationalVelocity !== null)) {
-        if (entity.attachedTo) {
-            const rotation = entity.attachedTo.rotationalVelocity * delta;
-            const offset = Vec.rotate(
-                Vec.subtract(entity.position, entity.attachedTo.position),
-                rotation
-            );
-            entity.position = Vec.add(entity.attachedTo.position, offset);
-            entity.rotation += rotation;
-        } else {
-            entity.rotation += entity.rotationalVelocity * delta;
-        }
+        entity.rotation += entity.rotationalVelocity * delta;
         entity.rotation %= 2 * Math.PI;
     }
 
@@ -296,11 +271,6 @@ const update = () => {
 
     // Remove entities marked to be destroyed
     entities = entities.filter(e => !e.destroy);
-
-    // Remove attachments to destroyed entities
-    for (let entity of entities.filter(e => e.attachedTo?.destroy)) {
-        entity.attachedTo = null;
-    }
 };
 
 const draw = () => {
@@ -315,27 +285,62 @@ const draw = () => {
     ctx.save();
     const scale = canvas.width / camera.view.size;
     ctx.scale(scale, scale);
-    const topLeft = Vec.add(camera.position, Vec.scale({ x: 1, y: 1 }, -camera.view.size / 2));
+    const halfView = Vec.scale({ x: 1, y: 1 }, -camera.view.size / 2);
+    const topLeft = Vec.add(camera.position, halfView);
+    const bottomRight = Vec.add(camera.position, Vec.scale(halfView, -1));
     ctx.translate(-topLeft.x, -topLeft.y);
 
-    // Draw floors
-    for (let y = 0; y < level.size; y++) {
-        const random = seededRandom(y);
-        for (let x = 0; x < level.floorWidth; x++) {
-            let type = "steps";
-            let flip = random() > 0.5;
-            if (x === 0 || x === level.floorWidth - 1) {
-                type = "wall";
-                flip = x !== 0;
+    // Draw tiles
+    const tilemap = document.getElementById("tilemap");
+    const tileWidth = 16;
+    const leftWall = -level.floorWidth - 1;
+    const rightWall = level.floorWidth;
+    for (let y = Math.floor(topLeft.y); y <= bottomRight.y; y++) {
+        for (let x = Math.floor(topLeft.x); x <= bottomRight.x; x++) {
+            const random = seededRandom(y * 1e3 + x);
+
+            let tile = 0;
+            let flip = false;
+            if (y === -1) {
+                if (x > leftWall && x < rightWall) {
+                    tile = 4;
+                } else if (x === leftWall) {
+                    tile = 5;
+                } else if (x === rightWall) {
+                    tile = 6;
+                }
+            } else if (y >= 0 && y < level.size) {
+                const leftEdge = leftWall - y - 1;
+                const rightEdge = rightWall + y + 1;
+                if (x > leftWall && x < rightWall) {
+                    tile = 2;
+                } else if (x === leftWall) {
+                    tile = 1;
+                } else if (x === rightWall) {
+                    tile = 3;
+                } else if (y === level.size - 1) {
+                    tile = 12;
+                } else if (x > leftEdge && x < rightEdge) {
+                    tile = 14;
+                } else if (x === leftEdge) {
+                    tile = 13;
+                } else if (x === rightEdge) {
+                    tile = 10;
+                }
+            } else if (y === level.size) {
+                if (x > leftWall && x < rightWall) {
+                    tile = 7;
+                } else if (x === leftWall) {
+                    tile = 8;
+                } else if (x === rightWall) {
+                    tile = 9;
+                }
             }
 
-            const imageId = `${type}${Math.round(random())}`;
-            const image = document.getElementById(imageId);
-
             ctx.save();
-            ctx.translate(x - level.floorWidth / 2, y);
+            ctx.translate(x, y);
             ctx.scale(flip ? -1 : 1, 1);
-            ctx.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, 0, 0, flip ? -1 : 1, 1);
+            ctx.drawImage(tilemap, tile * tileWidth, 0, tileWidth, tilemap.naturalHeight, 0, 0, flip ? -1 : 1, 1, 1);
             ctx.restore();
         }
     }
@@ -345,7 +350,7 @@ const draw = () => {
         ctx.save();
         ctx.translate(entity.position.x, entity.position.y);
         if (entity.player?.bounce) {
-            ctx.translate(0, entity.player.bounce * 0.3);
+            ctx.translate(0, entity.player.bounce * 0.4 - 0.2);
         }
         ctx.rotate(entity.rotation);
 
@@ -359,7 +364,7 @@ const draw = () => {
             frameWidth = image.naturalWidth / entity.sprite.animation.frames;
         }
 
-        const size = Vec.scale({ x: 1, y: 1 }, entity.sprite.scale);
+        const size = Vec.scale({ x: 1, y: 1 }, entity.sprite.scale ?? 1);
         ctx.translate(-size.x / 2, -size.y / 2); // Center image
         ctx.drawImage(image, frameWidth * frame, 0, frameWidth, image.naturalHeight, 0, 0, size.x, size.y);
 
