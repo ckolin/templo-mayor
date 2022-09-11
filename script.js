@@ -198,12 +198,38 @@ const update = () => {
             continue; // Too far away
         }
 
-        if (entity.sprite?.imageId === "laser") {
+        if (entity.sprite?.imageId === "bush") {
             zzfx(...[1.55, , 309, , .08, .18, 3, 1.6, -6.7, , , , , .3, , .1, .05, .69, .03]);
 
-            player.player.lives--;
-            entity.destroy = true;
+            player.velocity = Vec.scale(player.velocity, 0.8);
+            entity.sprite.imageId = "bush_dead";
+
+            // Spawn particles
+            for (let i = 1; i < 50; i++) {
+                const direction = Vec.rotate({ x: 0, y: 1 }, Math.random() * 2 * Math.PI);
+                entities.push({
+                    particle: {
+                        color: colors[Math.floor(Math.random() * 3 + 6)],
+                        size: Math.random() * 0.1 + 0.1
+                    },
+                    age: 0,
+                    lifetime: Math.random() * 400 + 600,
+                    position: Vec.add(entity.position, Vec.scale(direction, Math.random() * 0.5)),
+                    velocity: Vec.scale(direction, Math.random() * 1.5 + 0.2),
+                    damping: 2,
+                    gravity: 1,
+                    collision: {
+                        radius: 1,
+                        attach: false
+                    }
+                });
+            }
         }
+    }
+
+    // Gravity
+    for (let entity of entities.filter(e => e.gravity)) {
+        entity.velocity = Vec.add(entity.velocity, Vec.scale({ x: 0, y: 1 }, entity.gravity * delta));
     }
 
     // Velocity
@@ -263,12 +289,9 @@ const update = () => {
         }
     }
 
+    // Remove entities with no lifetime left
     entities
-        .filter(e => !e.keep)
-        .filter(e =>
-            (e.chunkId && !chunks.some(c => c.id === e.chunkId)) // Remove entities belonging to inactive chunks
-            || Vec.distance(e.position, camera.position) > camera.view.size * 2 // Remove entities too far out of view
-            || (e.lifetime && e.age > e.lifetime)) // Remove entities with no lifetime left
+        .filter(e => e.lifetime && e.age > e.lifetime)
         .forEach(e => e.destroy = true);
 
     // Remove entities marked to be destroyed
@@ -317,16 +340,6 @@ const draw = () => {
         }
     }
 
-    // Draw particles
-    for (let entity of entities.filter(e => e.particle)) {
-        ctx.save();
-        ctx.globalAlpha = 1 - entity.age / entity.lifetime;
-        ctx.fillStyle = entity.particle.color;
-        const s = entity.particle.size;
-        ctx.fillRect(entity.position.x - s / 2, entity.position.y - s / 2, s, s);
-        ctx.restore();
-    }
-
     // Draw sprites
     for (let entity of entities.filter(e => e.sprite)) {
         ctx.save();
@@ -353,11 +366,21 @@ const draw = () => {
         ctx.restore();
     }
 
+    // Draw particles
+    for (let entity of entities.filter(e => e.particle)) {
+        ctx.save();
+        //ctx.globalAlpha = 1 - entity.age / entity.lifetime;
+        ctx.fillStyle = entity.particle.color;
+        const s = entity.particle.size;
+        ctx.fillRect(entity.position.x - s / 2, entity.position.y - s / 2, s, s);
+        ctx.restore();
+    }
+
     // Debug overlay
     if (dbg()) {
         ctx.save();
-        ctx.lineWidth = 0.1;
-        ctx.globalAlpha = 0.5;
+        ctx.lineWidth = 0.03;
+        ctx.globalAlpha = 0.3;
 
         // Origin
         for (let entity of entities.filter(e => e.position)) {
