@@ -71,7 +71,7 @@ let level = {
 
 const camera = {
     view: {
-        size: 10,
+        size: 8,
         speed: 1
     },
     keep: true,
@@ -90,13 +90,15 @@ const player = {
     player: {
         score: 0,
         lives: 2,
-        bounce: 0
+        bounce: 0,
+        speed: 1,
+        maxSpeed: 1
     },
     keep: true,
     position: { x: 0, y: 0 },
-    velocity: { x: 0, y: 2 },
+    velocity: { x: 0, y: 0 },
     damping: 0.1,
-    gravity: 0.2,
+    gravity: 0.4,
     rotation: 0,
     rotationalVelocity: 3,
     collision: { radius: .5 }
@@ -155,10 +157,16 @@ const update = () => {
         camera.view.speed
     );
 
-    // Player movement
-    if (input.left || input.right) {
-
+    // Player steering
+    let steering = 0;
+    if (input.left) {
+        steering--;
     }
+    if (input.right) {
+        steering++;
+    }
+    player.velocity.x += steering * player.player.speed * delta;
+    player.velocity.x = Math.min(player.player.maxSpeed, Math.max(-player.player.maxSpeed, player.velocity.x));
 
     // Player bounce
     player.player.bounce = 1 - Math.abs(Math.sin(time * 0.003));
@@ -303,38 +311,44 @@ const draw = () => {
             let flip = false;
             if (y === -1) {
                 if (x > leftWall && x < rightWall) {
-                    tile = 4;
+                    tile = 4; // Top steps
                 } else if (x === leftWall) {
-                    tile = 5;
+                    tile = 5; // Top left wall
                 } else if (x === rightWall) {
-                    tile = 6;
+                    tile = 6; // Top right wall
                 }
             } else if (y >= 0 && y < level.size) {
                 const leftEdge = leftWall - y - 1;
                 const rightEdge = rightWall + y + 1;
                 if (x > leftWall && x < rightWall) {
-                    tile = 2;
+                    tile = 2; // Steps
                 } else if (x === leftWall) {
-                    tile = 1;
+                    tile = 1; // Left wall
                 } else if (x === rightWall) {
-                    tile = 3;
-                } else if (y === level.size - 1) {
-                    tile = 12;
+                    tile = 3; // Right wall
                 } else if (x > leftEdge && x < rightEdge) {
-                    tile = 14;
+                    if (y === level.size - 1) {
+                        tile = 14; // Bottom background wall
+                    } else {
+                        tile = 11; // Background wall
+                    }
                 } else if (x === leftEdge) {
-                    tile = 13;
+                    tile = 12; // Left edge
                 } else if (x === rightEdge) {
-                    tile = 10;
+                    tile = 13; // Right edge
                 }
             } else if (y === level.size) {
                 if (x > leftWall && x < rightWall) {
-                    tile = 7;
+                    tile = 7; // Bottom steps
                 } else if (x === leftWall) {
-                    tile = 8;
+                    tile = 8; // Bottom left wall
                 } else if (x === rightWall) {
-                    tile = 9;
+                    tile = 9; // Bottom right wall
+                } else {
+                    tile = 10; // Ground
                 }
+            } else if (y >= level.size) {
+                tile = 10; // Ground
             }
 
             ctx.save();
@@ -496,8 +510,10 @@ document.addEventListener("keydown", (e) => {
         return;
     }
 
-    if (e.key === " ") {
-        input.action = true;
+    if (["a", "ArrowLeft"].includes(e.key)) {
+        input.left = true;
+    } else if (["d", "ArrowRight"].includes(e.key)) {
+        input.right = true;
     }
 
     if (e.key === "Escape") {
@@ -512,8 +528,10 @@ document.addEventListener("keyup", (e) => {
         return;
     }
 
-    if (e.key === " ") {
-        input.action = false;
+    if (["a", "ArrowLeft"].includes(e.key)) {
+        input.left = false;
+    } else if (["d", "ArrowRight"].includes(e.key)) {
+        input.right = false;
     }
 });
 
