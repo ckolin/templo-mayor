@@ -292,11 +292,12 @@ const draw = () => {
     // Center around camera
     ctx.save();
     const scale = canvas.width / camera.view.size;
-    ctx.scale(scale, scale);
     const halfView = Vec.scale({ x: 1, y: 1 }, -camera.view.size / 2);
     const topLeft = Vec.add(camera.position, halfView);
     const bottomRight = Vec.add(camera.position, Vec.scale(halfView, -1));
-    ctx.translate(-topLeft.x, -topLeft.y);
+    const translate = Vec.floor(Vec.scale(topLeft, -scale));
+    ctx.translate(translate.x, translate.y);
+    ctx.scale(scale, scale);
 
     // Draw tiles
     const tilemap = document.getElementById("tilemap");
