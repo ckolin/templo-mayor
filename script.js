@@ -67,8 +67,8 @@ const input = {
 
 // Current level data
 let level = {
-    size: 8,
-    floorWidth: 2,
+    width: 2,
+    height: 8,
     populated: false,
     wind: 0 // TODO
 };
@@ -137,13 +137,13 @@ const update = () => {
 
     // Populate new level
     if (!level.populated) {
-        for (let y = 1; y < level.size; y++) {
+        for (let y = 1; y < level.height; y++) {
             const random = seededRandom(y);
 
             if (random() < 0.3) {
                 entities.push({
                     sprite: { imageId: "bush" },
-                    position: { x: random(-1, 1) * level.floorWidth, y: y + 0.2 },
+                    position: { x: random(-1, 1) * level.width, y: y + 0.2 },
                     collision: { radius: .3 }
                 });
             }
@@ -172,14 +172,13 @@ const update = () => {
         const direction = Vec.rotate({ x: 0, y: -1 }, (Math.random() - 0.5) * 3);
         entities.push({
             particle: {
-                color: colors[Math.floor(Math.random() * 3 + 14)],
+                color: colors[Math.floor(Math.random() * 3 + 41)],
                 size: Math.random() * 0.1 + 0.05
             },
             age: 0,
             lifetime: Math.random() * 200 + 200,
-            position: Vec.add(player.position, Vec.scale(direction, Math.random() * 0.5)),
+            position: Vec.add(Vec.add(player.position, { x: 0, y: 0.6 }), Vec.scale(direction, Math.random() * 0.5)),
             velocity: Vec.scale(direction, Math.random() * 1.2 + 0.2),
-            collision: { radius: 1 }
         });
     }
 
@@ -212,14 +211,23 @@ const update = () => {
                     },
                     age: 0,
                     lifetime: Math.random() * 400 + 600,
-                    position: Vec.add(entity.position, Vec.scale(direction, Math.random() * 0.5)),
+                    position: Vec.add(entity.position, Vec.scale(direction, Math.random() * 0.3)),
                     velocity: Vec.scale(direction, Math.random() * 1.5 + 0.2),
                     damping: 2,
-                    gravity: 0.8,
-                    collision: { radius: 1 }
+                    gravity: 0.8
                 });
             }
         }
+    }
+
+    // Wall collision
+    for (let entity of entities.filter(e => e.collision)) {
+        if (entity.position.x >= -level.width && entity.position.x <= level.width) {
+            continue; // Inside walls
+        }
+
+        entity.position.x = Math.min(Math.max(entity.position.x, -level.width), level.width);
+        entity.velocity.x = 0;
     }
 
     // Gravity
@@ -300,8 +308,8 @@ const draw = () => {
     // Draw tiles
     const tileset = document.getElementById("tileset");
     const tileWidth = 16;
-    const leftWall = -level.floorWidth - 1;
-    const rightWall = level.floorWidth;
+    const leftWall = -level.width - 1;
+    const rightWall = level.width;
     for (let y = Math.floor(topLeft.y); y <= bottomRight.y; y++) {
         for (let x = Math.floor(topLeft.x); x <= bottomRight.x; x++) {
             const random = seededRandom(y * 1e3 + x);
@@ -315,7 +323,7 @@ const draw = () => {
                 } else if (x === rightWall) {
                     tile = 6; // Top right wall
                 }
-            } else if (y >= 0 && y < level.size) {
+            } else if (y >= 0 && y < level.height) {
                 const leftEdge = leftWall - y - 1;
                 const rightEdge = rightWall + y + 1;
                 if (x > leftWall && x < rightWall) {
@@ -325,7 +333,7 @@ const draw = () => {
                 } else if (x === rightWall) {
                     tile = 3; // Right wall
                 } else if (x > leftEdge && x < rightEdge) {
-                    if (y === level.size - 1) {
+                    if (y === level.height - 1) {
                         tile = 14; // Bottom background wall
                     } else {
                         tile = 11; // Background wall
@@ -335,7 +343,7 @@ const draw = () => {
                 } else if (x === rightEdge) {
                     tile = 13; // Right edge
                 }
-            } else if (y === level.size) {
+            } else if (y === level.height) {
                 if (x > leftWall && x < rightWall) {
                     tile = 7; // Bottom steps
                 } else if (x === leftWall) {
@@ -345,7 +353,7 @@ const draw = () => {
                 } else {
                     tile = 10; // Ground
                 }
-            } else if (y >= level.size) {
+            } else if (y >= level.height) {
                 tile = 10; // Ground
             }
 
