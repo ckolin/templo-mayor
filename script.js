@@ -68,8 +68,8 @@ const input = {
 // Current level data
 let level = {
     width: 2,
-    height: 8,
-    populated: false,
+    height: 4,
+    initialize: true,
     wind: 0 // TODO
 };
 
@@ -135,8 +135,19 @@ const update = () => {
         return;
     }
 
+    // End of level
+    if (player.position.y > level.height + 1) {
+        player.player.score += 100;
+        level.height += 2;
+        level.initialize = true;
+    }
+
     // Populate new level
-    if (!level.populated) {
+    if (level.initialize) {
+        player.position = { x: 0, y: 0 };
+        player.velocity = { x: 0, y: 0 };
+        camera.position = { x: 0, y: 0 };
+
         for (let y = 1; y < level.height; y++) {
             const random = seededRandom(y);
 
@@ -149,7 +160,7 @@ const update = () => {
             }
         }
 
-        level.populated = true;
+        level.initialize = false;
     }
 
     // Camera
@@ -170,7 +181,11 @@ const update = () => {
     player.velocity.x = Math.min(player.player.maxSpeed, Math.max(-player.player.maxSpeed, player.velocity.x));
 
     // Player bounce
-    player.player.bounce = 1 - Math.abs(Math.sin(time * 0.003));
+    if (player.sprite.imageId === "player_falling") {
+        player.player.bounce = 1 - Math.abs(Math.sin(time * 0.003));
+    } else {
+        player.player.bounce = 0;
+    }
     for (let i = 1; i < deltaMs * player.player.bounce * 0.2; i++) {
         const direction = Vec.rotate({ x: 0, y: -1 }, (Math.random() - 0.5) * 3);
         entities.push({
@@ -195,7 +210,8 @@ const update = () => {
         if (entity.sprite?.imageId === "bush") {
             zzfx(...[1.55, , 309, , .08, .18, 3, 1.6, -6.7, , , , , .3, , .1, .05, .69, .03]);
 
-            player.velocity = Vec.scale(player.velocity, 0.8);
+            player.player.score = Math.max(0, player.player.score - 10);
+            player.velocity = Vec.scale(player.velocity, 0.5);
             entity.sprite = {
                 imageId: "bush_dead",
                 animation: {
