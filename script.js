@@ -2,9 +2,9 @@ const dbg = (...objs) => {
     const enabled = location.hash === "#debug";
     if (objs.length > 0) {
         if (enabled) {
-            console.log(objs);
+            console.log(...objs);
         }
-        return objs;
+        return objs.length === 1 ? objs[0] : objs;
     } else {
         return enabled;
     }
@@ -137,7 +137,7 @@ const update = () => {
 
     // Populate new level
     if (!level.populated) {
-        for (let y = 0; y < level.size; y++) {
+        for (let y = 1; y < level.size; y++) {
             const random = seededRandom(y);
 
             if (random() < 0.3) {
@@ -162,13 +162,7 @@ const update = () => {
     );
 
     // Player steering
-    let steering = 0;
-    if (input.left) {
-        steering--;
-    }
-    if (input.right) {
-        steering++;
-    }
+    const steering = (input.left ? -1 : 0) + (input.right ? 1 : 0);
     player.velocity.x += steering * player.player.acceleration * delta;
     player.velocity.x = Math.min(player.player.maxSpeed, Math.max(-player.player.maxSpeed, player.velocity.x));
 
@@ -178,11 +172,11 @@ const update = () => {
         const direction = Vec.rotate({ x: 0, y: -1 }, (Math.random() - 0.5) * 3);
         entities.push({
             particle: {
-                color: colors[Math.floor(Math.random() * 3 + 41)],
+                color: colors[Math.floor(Math.random() * 3 + 14)],
                 size: Math.random() * 0.1 + 0.05
             },
             age: 0,
-            lifetime: Math.random() * 300 + 200,
+            lifetime: Math.random() * 200 + 200,
             position: Vec.add(player.position, Vec.scale(direction, Math.random() * 0.5)),
             velocity: Vec.scale(direction, Math.random() * 1.2 + 0.2),
             collision: { radius: 1 }
@@ -209,7 +203,7 @@ const update = () => {
             };
 
             // Spawn particles
-            for (let i = 1; i < 50; i++) {
+            for (let i = 1; i < 64; i++) {
                 const direction = Vec.rotate({ x: 0, y: 1 }, Math.random() * 2 * Math.PI);
                 entities.push({
                     particle: {
@@ -221,7 +215,7 @@ const update = () => {
                     position: Vec.add(entity.position, Vec.scale(direction, Math.random() * 0.5)),
                     velocity: Vec.scale(direction, Math.random() * 1.5 + 0.2),
                     damping: 2,
-                    gravity: 0.5,
+                    gravity: 0.8,
                     collision: { radius: 1 }
                 });
             }
@@ -313,7 +307,6 @@ const draw = () => {
             const random = seededRandom(y * 1e3 + x);
 
             let tile = 0;
-            let flip = false;
             if (y === -1) {
                 if (x > leftWall && x < rightWall) {
                     tile = 4; // Top steps
@@ -358,8 +351,7 @@ const draw = () => {
 
             ctx.save();
             ctx.translate(x, y);
-            ctx.scale(flip ? -1 : 1, 1);
-            ctx.drawImage(tileset, tile * tileWidth, 0, tileWidth, tileset.naturalHeight, 0, 0, flip ? -1 : 1, 1, 1);
+            ctx.drawImage(tileset, tile * tileWidth, 0, tileWidth, tileset.naturalHeight, 0, 0, 1, 1);
             ctx.restore();
         }
     }
