@@ -135,13 +135,6 @@ const update = () => {
         return;
     }
 
-    // End of level
-    if (player.position.y > level.height + 1) {
-        player.player.score += 100;
-        level.height += 2;
-        level.initialize = true;
-    }
-
     // Populate new level
     if (level.initialize) {
         player.position = { x: 0, y: 0 };
@@ -284,17 +277,19 @@ const update = () => {
         entity.rotationalVelocity *= 1 - entity.rotationalDamping * delta;
     }
 
+    // End of level
+    if (player.position.y > level.height + 1) {
+        player.player.score += 100;
+        level.height += 2;
+        level.initialize = true;
+        entities
+            .filter(e => e !== player && e !== camera)
+            .forEach(e => e.destroy = true);
+    }
+
     // Increase age
     for (let entity of entities.filter(e => e.age != null)) {
         entity.age += deltaMs;
-    }
-
-    // Game over
-    if (player.player.lives <= 0) {
-        input.gameOver = true;
-        for (let entity of entities.filter(e => !e.star && e !== camera)) {
-            entity.destroy = true;
-        }
     }
 
     // Remove entities with no lifetime left
