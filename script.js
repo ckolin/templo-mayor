@@ -95,13 +95,13 @@ const player = {
         score: 0,
         lives: 2,
         bounce: 0,
-        speed: 1,
+        acceleration: 5,
         maxSpeed: 1
     },
     keep: true,
     position: { x: 0, y: 0 },
     velocity: { x: 0, y: 0 },
-    damping: 0.1,
+    damping: 0.5,
     gravity: 0.4,
     rotation: 0,
     rotationalVelocity: 3,
@@ -169,7 +169,7 @@ const update = () => {
     if (input.right) {
         steering++;
     }
-    player.velocity.x += steering * player.player.speed * delta;
+    player.velocity.x += steering * player.player.acceleration * delta;
     player.velocity.x = Math.min(player.player.maxSpeed, Math.max(-player.player.maxSpeed, player.velocity.x));
 
     // Player bounce
