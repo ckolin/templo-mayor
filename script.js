@@ -45,10 +45,14 @@ const drawWord = (word) => {
 };
 
 // Seeded random number generator
-const seed = Date.now();
+const seed = dbg(Date.now());
 const seededRandom = s => {
-    const random = () => (2 ** 31 - 1 & (s = Math.imul(48271, s + seed))) / 2 ** 31;
-    for (let i = 0; i < 20; i++) {
+    const random = (from = 0, to = 1) => {
+        const value = (2 ** 31 - 1 & (s = Math.imul(48271, s + seed))) / 2 ** 31;
+        return from + value * (to - from);
+    };
+
+    for (let i = 0; i < 11; i++) {
         random();
     }
     return random;
@@ -139,7 +143,7 @@ const update = () => {
             if (random() < 0.3) {
                 entities.push({
                     sprite: { imageId: "bush" },
-                    position: { x: (random() - 0.5) * 2 * level.floorWidth, y: y + 0.2 },
+                    position: { x: random(-1, 1) * level.floorWidth, y: y + 0.2 },
                     collision: { radius: .3 }
                 });
             }
