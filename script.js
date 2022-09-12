@@ -101,7 +101,7 @@ const player = {
     keep: true,
     position: { x: 0, y: 0 },
     velocity: { x: 0, y: 0 },
-    damping: 0.5,
+    damping: 0.2,
     gravity: 0.4,
     rotation: 0,
     rotationalVelocity: 3,
@@ -163,6 +163,9 @@ const update = () => {
 
     // Player steering
     const steering = (input.left ? -1 : 0) + (input.right ? 1 : 0);
+    if (steering === 0) {
+        player.velocity.x *= 1 - delta;
+    }
     player.velocity.x += steering * player.player.acceleration * delta;
     player.velocity.x = Math.min(player.player.maxSpeed, Math.max(-player.player.maxSpeed, player.velocity.x));
 
