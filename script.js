@@ -304,7 +304,7 @@ const draw = () => {
     ctx.scale(scale, scale);
 
     // Draw tiles
-    const tilemap = document.getElementById("tilemap");
+    const tileset = document.getElementById("tileset");
     const tileWidth = 16;
     const leftWall = -level.floorWidth - 1;
     const rightWall = level.floorWidth;
@@ -359,7 +359,7 @@ const draw = () => {
             ctx.save();
             ctx.translate(x, y);
             ctx.scale(flip ? -1 : 1, 1);
-            ctx.drawImage(tilemap, tile * tileWidth, 0, tileWidth, tilemap.naturalHeight, 0, 0, flip ? -1 : 1, 1, 1);
+            ctx.drawImage(tileset, tile * tileWidth, 0, tileWidth, tileset.naturalHeight, 0, 0, flip ? -1 : 1, 1, 1);
             ctx.restore();
         }
     }
