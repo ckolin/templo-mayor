@@ -69,8 +69,10 @@ const input = {
 let level = {
     width: 2,
     height: 4,
-    initialize: true,
-    wind: 0 // TODO
+    wind: 0, // TODO
+    age: 0,
+    lifetime: 0,
+    initialize: true
 };
 
 const camera = {
@@ -78,17 +80,16 @@ const camera = {
         size: 8,
         speed: 1
     },
-    keep: true,
     position: { x: 0, y: 0 },
     velocity: { x: 0, y: 0 }
 };
 
 const player = {
     sprite: {
-        imageId: "player_falling",
+        imageId: "player",
         animation: {
             frames: 2,
-            delay: 500,
+            delay: Infinity,
         }
     },
     player: {
@@ -98,14 +99,13 @@ const player = {
         acceleration: 5,
         maxSpeed: 1
     },
-    keep: true,
     position: { x: 0, y: 0 },
     velocity: { x: 0, y: 0 },
     damping: 0.2,
-    gravity: 0.4,
+    gravity: 0,
     rotation: 0,
-    rotationalVelocity: 3,
-    collision: { radius: .5 }
+    rotationalVelocity: 0,
+    collision: { radius: 0.5 }
 };
 
 let entities = [
@@ -137,9 +137,12 @@ const update = () => {
 
     // Populate new level
     if (level.initialize) {
-        player.position = { x: 0, y: 0 };
-        player.velocity = { x: 0, y: 0 };
-        camera.position = { x: 0, y: 0 };
+        player.sprite.animation.delay = 500;
+        player.gravity = 0.4;
+        player.rotation = 0;
+        player.rotationalVelocity = 3;
+        player.position = { x: 0, y: -0.5 };
+        camera.position = { x: 0, y: -2 };
 
         for (let y = 1; y < level.height; y++) {
             const random = seededRandom(y);
@@ -153,6 +156,16 @@ const update = () => {
             }
         }
 
+        entities.push({
+            sprite: {
+                imageId: "goal",
+                scale: 3
+            },
+            position: { x: 0, y: level.height + 1 }
+        });
+
+        level.age = 0;
+        level.lifetime = Infinity;
         level.initialize = false;
     }
 
@@ -174,7 +187,7 @@ const update = () => {
     player.velocity.x = Math.min(player.player.maxSpeed, Math.max(-player.player.maxSpeed, player.velocity.x));
 
     // Player bounce
-    if (player.sprite.imageId === "player_falling") {
+    if (player.sprite.animation.delay !== Infinity) {
         player.player.bounce = 1 - Math.abs(Math.sin(time * 0.003));
     } else {
         player.player.bounce = 0;
@@ -277,11 +290,41 @@ const update = () => {
         entity.rotationalVelocity *= 1 - entity.rotationalDamping * delta;
     }
 
-    // End of level
-    if (player.position.y > level.height + 1) {
+    // Level completed
+    if (player.position.y > level.height + 0.5 && level.lifetime === Infinity) {
+        player.sprite.animation.delay = Infinity;
+        player.velocity = { x: 0, y: 0 };
+        player.gravity = 0;
+        player.rotation = 0.5 * Math.PI;
+        player.rotationalVelocity = 0;
+        
         player.player.score += 100;
+        level.lifetime = level.age + 1000;
+
+        for (let i = 0; i < 64; i++) {
+            const direction = Vec.rotate({ x: 0, y: -1 }, (Math.random() - 0.5) * 3);
+            entities.push({
+                particle: {
+                    color: colors[Math.floor(Math.random() * 3 + 41)],
+                    size: Math.random() * 0.15 + 0.05
+                },
+                age: 0,
+                lifetime: Math.random() * 400 + 600,
+                position: Vec.add(Vec.add(player.position, { x: 0, y: 0.6 }), Vec.scale(direction, Math.random() * 0.5)),
+                velocity: Vec.scale(direction, Math.random() * 1.2 + 0.6),
+                gravity: 0.8
+            });
+        }
+    }
+
+    // End of level
+    level.age += deltaMs;
+    if (level.age > level.lifetime) {
+        // Prepare next level
         level.height += 2;
         level.initialize = true;
+
+        // Remove entities
         entities
             .filter(e => e !== player && e !== camera)
             .forEach(e => e.destroy = true);
@@ -379,7 +422,7 @@ const draw = () => {
     }
 
     // Draw sprites
-    for (let entity of entities.filter(e => e.sprite)) {
+    for (let entity of [...entities.filter(e => e.sprite && e !== player), player]) {
         ctx.save();
         ctx.translate(entity.position.x, entity.position.y);
         if (entity.player?.bounce) {
