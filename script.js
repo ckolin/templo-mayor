@@ -634,7 +634,7 @@ window.addEventListener("blur", () => input.pause = true);
 window.addEventListener("focus", () => input.pause = false);
 
 const handleTouch = (e) => {
-    dbg(e);
+    e.preventDefault();
     const left = e.touches[0].pageX < window.innerWidth / 2;
     if (left) {
         input.left = true;
@@ -644,16 +644,16 @@ const handleTouch = (e) => {
         input.right = true;
     }
 };
-canvas.addEventListener("touchstart", (e) => {
+document.body.addEventListener("touchstart", (e) => {
     if (input.gameover) {
         location.reload();
     } else {
         handleTouch(e);
     }
 });
-canvas.addEventListener("touchmove", handleTouch);
+document.body.addEventListener("touchmove", handleTouch);
 
-canvas.addEventListener("touchend", (e) => {
+document.body.addEventListener("touchend", (e) => {
     input.left = input.right = false;
 });
 
