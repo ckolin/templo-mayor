@@ -62,11 +62,13 @@ const input = {
     left: false,
     right: false,
     pause: false,
-    gameOver: false
+    transition: false, // TODO
+    gameover: false
 };
 
 // Current level data
 let level = {
+    day: 1,
     width: 2,
     height: 4,
     wind: 0, // TODO
@@ -85,13 +87,6 @@ const camera = {
 };
 
 const player = {
-    sprite: {
-        imageId: "player",
-        animation: {
-            frames: 2,
-            delay: Infinity,
-        }
-    },
     player: {
         score: 0,
         lives: 2,
@@ -99,6 +94,14 @@ const player = {
         acceleration: 5,
         maxSpeed: 1
     },
+    sprite: {
+        imageId: "player",
+        animation: {
+            frames: 2,
+            delay: Infinity,
+        }
+    },
+    age: 0,
     position: { x: 0, y: 0 },
     velocity: { x: 0, y: 0 },
     damping: 0.2,
@@ -131,13 +134,14 @@ const update = () => {
     const delta = deltaMs / 1000;
     time = newTime;
 
-    if (input.pause || input.gameOver) {
+    if (input.pause || input.gameover) {
         return;
     }
 
     // Populate new level
     if (level.initialize) {
         player.sprite.animation.delay = 500;
+        player.age = 0;
         player.gravity = 0.4;
         player.rotation = 0;
         player.rotationalVelocity = 3;
@@ -150,6 +154,7 @@ const update = () => {
             if (random() < 0.3) {
                 entities.push({
                     sprite: { imageId: "bush" },
+                    age: 0,
                     position: { x: random(-1, 1) * level.width, y: y + 0.2 },
                     collision: { radius: .3 }
                 });
@@ -290,6 +295,12 @@ const update = () => {
         entity.rotationalVelocity *= 1 - entity.rotationalDamping * delta;
     }
 
+    // Time score
+    if (level.lifetime === Infinity && player.age > 1000) {
+        player.player.score = Math.max(0, player.player.score - 1);
+        player.age = 0;
+    }
+
     // Level completed
     if (player.position.y > level.height + 0.5 && level.lifetime === Infinity) {
         player.sprite.animation.delay = Infinity;
@@ -321,6 +332,7 @@ const update = () => {
     level.age += deltaMs;
     if (level.age > level.lifetime) {
         // Prepare next level
+        level.day++;
         level.height += 2;
         level.initialize = true;
 
@@ -436,7 +448,7 @@ const draw = () => {
         let frame = 0;
         let frameWidth = image.naturalWidth;
         if (entity.sprite.animation) {
-            frame = Math.floor(time / entity.sprite.animation.delay) % entity.sprite.animation.frames;
+            frame = Math.floor(entity.age / entity.sprite.animation.delay) % entity.sprite.animation.frames;
             frameWidth = image.naturalWidth / entity.sprite.animation.frames;
         }
 
@@ -450,7 +462,7 @@ const draw = () => {
     // Draw particles
     for (let entity of entities.filter(e => e.particle)) {
         ctx.save();
-        //ctx.globalAlpha = 1 - entity.age / entity.lifetime;
+        ctx.globalAlpha = 1 - (entity.age / entity.lifetime) ** 4;
         ctx.fillStyle = entity.particle.color;
         const s = entity.particle.size;
         ctx.fillRect(entity.position.x - s / 2, entity.position.y - s / 2, s, s);
@@ -493,10 +505,9 @@ const draw = () => {
     ctx.restore();
 
     // Draw hud
-    ctx.fillStyle = colors[0];
+    ctx.globalCompositeOperation = "overlay";
     const unit = canvas.width / 48; // Used for ui element sizes
-
-    if (input.gameOver) {
+    if (input.gameover) {
         ctx.save();
         ctx.scale(unit, unit);
         ctx.translate(0, 5);
@@ -515,38 +526,39 @@ const draw = () => {
         if (input.action) {
             location.reload();
         }
+    } else if (input.transition) {
+        // TODO
     } else {
-        // Draw arrow in direction of joeys
-        for (let entity of entities.filter(e => e.sprite?.imageId === "joey")) {
-            const between = Vec.subtract(entity.position, camera.position);
-            const distance = Vec.length(between);
-            const scale = 40 / distance + 1;
-
-            ctx.save();
-
-            ctx.globalAlpha = Math.max(0, Math.min(1, (distance - 60) / 10));
-            ctx.translate(canvas.width / 2, canvas.height / 2);
-            ctx.rotate(Vec.angle(between));
-            ctx.translate(10 * unit, 0);
-            ctx.scale(scale, scale);
-
-            ctx.beginPath();
-            ctx.moveTo(0, -unit);
-            ctx.lineTo(unit, 0);
-            ctx.lineTo(0, unit);
-            ctx.fill();
-
-            ctx.restore();
-        }
+        // Draw day
+        ctx.save();
+        ctx.translate(canvas.width / 2, 0);
+        ctx.scale(unit / 2, unit / 2);
+        ctx.translate(-11, 1)
+        drawWord("day " + "00".concat(level.day).substring(level.day.toString().length));
+        ctx.restore();
 
         // Draw score
         ctx.save();
-        ctx.translate(0, canvas.height);
+        ctx.translate(canvas.width / 3, 0);
         ctx.scale(unit / 4, unit / 4);
-        ctx.translate(2, -8)
-        drawWord("000".concat(player.player.score).substring(player.player.score.toString().length));
+        ctx.translate(-13, 1);
+        drawWord("score");
+        ctx.translate(3, 8)
+        drawWord("0000".concat(player.player.score).substring(player.player.score.toString().length));
+        ctx.restore();
+
+        // Draw highscore
+        const highscore = localStorage.getItem("tm-highscore") ?? 0;
+        ctx.save();
+        ctx.translate(canvas.width * 2 / 3, 0);
+        ctx.scale(unit / 4, unit / 4);
+        ctx.translate(-5, 1);
+        drawWord("high");
+        ctx.translate(0, 8)
+        drawWord("0000".concat(highscore).substring(highscore.toString().length));
         ctx.restore();
     }
+    ctx.globalCompositeOperation = "source-over";
 
     requestAnimationFrame(draw);
 };
