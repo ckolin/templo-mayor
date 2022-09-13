@@ -52,7 +52,7 @@ const seededRandom = s => {
         return from + value * (to - from);
     };
 
-    for (let i = 0; i < 11; i++) {
+    for (let i = 0; i < 20; i++) {
         random();
     }
     return random;
@@ -62,7 +62,6 @@ const input = {
     left: false,
     right: false,
     pause: false,
-    transition: false, // TODO
     gameover: false
 };
 
@@ -71,6 +70,7 @@ let level = {
     day: 1,
     width: 2,
     height: 4,
+    difficulty: 1,
     wind: 0, // TODO
     age: 0,
     lifetime: 0,
@@ -83,7 +83,8 @@ const camera = {
         speed: 1
     },
     position: { x: 0, y: 0 },
-    velocity: { x: 0, y: 0 }
+    velocity: { x: 0, y: 0 },
+    keep: true
 };
 
 const player = {
@@ -91,8 +92,8 @@ const player = {
         score: 0,
         lives: 2,
         bounce: 0,
-        acceleration: 5,
-        maxSpeed: 1
+        acceleration: 8,
+        maxSpeed: 2
     },
     sprite: {
         imageId: "player",
@@ -104,16 +105,31 @@ const player = {
     age: 0,
     position: { x: 0, y: 0 },
     velocity: { x: 0, y: 0 },
-    damping: 0.2,
+    damping: 0,
     gravity: 0,
     rotation: 0,
     rotationalVelocity: 0,
-    collision: { radius: 0.5 }
+    collision: { radius: 0.4 },
+    keep: true
+};
+
+const priest = {
+    sprite: {
+        imageId: "priest",
+        animation: {
+            frames: 2,
+            delay: 700,
+        }
+    },
+    age: 0,
+    position: { x: -1, y: -0.5 },
+    keep: true
 };
 
 let entities = [
     camera,
-    player
+    player,
+    priest
 ];
 
 const angleDifference = (a, b) => {
@@ -142,24 +158,55 @@ const update = () => {
     if (level.initialize) {
         player.sprite.animation.delay = 500;
         player.age = 0;
-        player.gravity = 0.4;
+        player.damping = 0.3;
+        player.gravity = 0.8 * level.difficulty;
         player.rotation = 0;
-        player.rotationalVelocity = 3;
+        player.rotationalVelocity = 2 * level.difficulty;
+
         player.position = { x: 0, y: -0.5 };
-        camera.position = { x: 0, y: -2 };
+        camera.position = { x: 0, y: -3 };
 
+        const random = seededRandom(level.day);
         for (let y = 1; y < level.height; y++) {
-            const random = seededRandom(y);
-
-            if (random() < 0.3) {
+            if (random() < 0.2 * level.difficulty) {
                 entities.push({
                     sprite: { imageId: "bush" },
                     age: 0,
                     position: { x: random(-1, 1) * level.width, y: y + 0.2 },
                     collision: { radius: .3 }
                 });
+            } else if (random() < 0.5 * level.difficulty) {
+                entities.push({
+                    sprite: { imageId: "spears" },
+                    position: { x: random(-1, 1) * level.width, y },
+                    collision: { radius: .2 }
+                });
+            } else if (random() < 0.2) {
+                entities.push({
+                    sprite: {
+                        imageId: "coin",
+                        scale: 0.5,
+                        animation: {
+                            frames: 4,
+                            delay: 300
+                        }
+                    },
+                    age: 0,
+                    position: { x: random(-1, 1) * level.width, y },
+                    collision: { radius: .2 }
+                });
             }
         }
+
+        entities.push({
+            sprite: {
+                imageId: "sun",
+                scale: 2
+            },
+            position: { x: 0, y: -2 },
+            velocity: { x: 0, y: -0.5 },
+            damping: 0.5
+        });
 
         entities.push({
             sprite: {
@@ -220,7 +267,6 @@ const update = () => {
 
         if (entity.sprite?.imageId === "bush") {
             zzfx(...[1.55, , 309, , .08, .18, 3, 1.6, -6.7, , , , , .3, , .1, .05, .69, .03]);
-
             player.player.score = Math.max(0, player.player.score - 10);
             player.velocity = Vec.scale(player.velocity, 0.5);
             entity.sprite = {
@@ -247,6 +293,15 @@ const update = () => {
                     gravity: 0.8
                 });
             }
+        } else if (entity.sprite?.imageId === "spears") {
+            zzfx(...[2.01, , 110, .04, .27, .51, 3, 4.78, .9, , , , .19, .4, -13, .2, .24, .3, .17, .03]);
+            player.damping = 10;
+            input.gameover = true;
+            localStorage.setItem("tm-highscore", Math.max(localStorage.getItem("tm-highscore") ?? 0, player.player.score));
+        } else if (entity.sprite?.imageId === "coin") {
+            zzfx(...[, , 307, .01, .03, .17, , 1.35, , , 47, .07, , , , , , .76, .01, .1]);
+            player.player.score += 50;
+            entity.destroy = true;
         }
     }
 
@@ -303,12 +358,13 @@ const update = () => {
 
     // Level completed
     if (player.position.y > level.height + 0.5 && level.lifetime === Infinity) {
+        zzfx(...[2.04, , 496, .02, .21, .28, 2, 1.93, , , 176, .15, .07, , , , .06, .57, .11, .29]);
+
         player.sprite.animation.delay = Infinity;
-        player.velocity = { x: 0, y: 0 };
+        player.damping = 10;
         player.gravity = 0;
-        player.rotation = 0.5 * Math.PI;
         player.rotationalVelocity = 0;
-        
+
         player.player.score += 100;
         level.lifetime = level.age + 1000;
 
@@ -334,11 +390,12 @@ const update = () => {
         // Prepare next level
         level.day++;
         level.height += 2;
+        level.difficulty += 0.1;
         level.initialize = true;
 
         // Remove entities
         entities
-            .filter(e => e !== player && e !== camera)
+            .filter(e => !e.keep)
             .forEach(e => e.destroy = true);
     }
 
@@ -361,7 +418,7 @@ const draw = () => {
     update();
 
     // Draw background
-    ctx.fillStyle = colors[2];
+    ctx.fillStyle = colors[4];
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Center around camera
@@ -379,12 +436,16 @@ const draw = () => {
     const tileWidth = 16;
     const leftWall = -level.width - 1;
     const rightWall = level.width;
+    const sky = -3;
     for (let y = Math.floor(topLeft.y); y <= bottomRight.y; y++) {
         for (let x = Math.floor(topLeft.x); x <= bottomRight.x; x++) {
             const random = seededRandom(y * 1e3 + x);
 
             let tile = 0;
-            if (y === -1) {
+            if (y <= sky) {
+                const n = Math.min(3, sky - y);
+                tile = 15 + n; // Sky
+            } else if (y === -1) {
                 if (x > leftWall && x < rightWall) {
                     tile = 4; // Top steps
                 } else if (x === leftWall) {
@@ -422,7 +483,11 @@ const draw = () => {
                 } else {
                     tile = 10; // Ground
                 }
-            } else if (y >= level.height) {
+            } else if (y === level.height + 2) {
+                tile = 19; // Dark ground transition
+            } else if (y > level.height + 2) {
+                tile = 20; // Dark ground
+            } else if (y > level.height) {
                 tile = 10; // Ground
             }
 
@@ -442,9 +507,7 @@ const draw = () => {
         }
         ctx.rotate(entity.rotation);
 
-
         const image = document.getElementById(entity.sprite.imageId);
-
         let frame = 0;
         let frameWidth = image.naturalWidth;
         if (entity.sprite.animation) {
@@ -505,35 +568,33 @@ const draw = () => {
     ctx.restore();
 
     // Draw hud
-    ctx.globalCompositeOperation = "overlay";
     const unit = canvas.width / 48; // Used for ui element sizes
     if (input.gameover) {
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = 1;
+
         ctx.save();
         ctx.scale(unit, unit);
         ctx.translate(0, 5);
         drawWord("  ...gan..ne over");
         ctx.translate(0, 15)
-        drawWord("     ." + "000".concat(player.wallaby.score).substring(player.wallaby.score.toString().length));
-        ctx.translate(0, 8);
         ctx.scale(0.5, 0.5);
-        drawWord("      joeys rescued");
-        ctx.translate(0, 25);
-        ctx.globalAlpha = 0.5;
+        drawWord("        score");
+        ctx.scale(2, 2);
+        ctx.translate(0, 4);
+        drawWord("    " + "0000".concat(player.player.score).substring(player.player.score.toString().length));
+        ctx.translate(0, 15);
+        ctx.scale(0.5, 0.5);
         drawWord("    tap to try again");
         ctx.restore();
-
-        // Restart game
-        if (input.action) {
-            location.reload();
-        }
-    } else if (input.transition) {
-        // TODO
     } else {
         // Draw day
         ctx.save();
         ctx.translate(canvas.width / 2, 0);
         ctx.scale(unit / 2, unit / 2);
-        ctx.translate(-11, 1)
+        ctx.translate(-11, 2)
         drawWord("day " + "00".concat(level.day).substring(level.day.toString().length));
         ctx.restore();
 
@@ -541,7 +602,7 @@ const draw = () => {
         ctx.save();
         ctx.translate(canvas.width / 3, 0);
         ctx.scale(unit / 4, unit / 4);
-        ctx.translate(-13, 1);
+        ctx.translate(-13, 3);
         drawWord("score");
         ctx.translate(3, 8)
         drawWord("0000".concat(player.player.score).substring(player.player.score.toString().length));
@@ -552,13 +613,12 @@ const draw = () => {
         ctx.save();
         ctx.translate(canvas.width * 2 / 3, 0);
         ctx.scale(unit / 4, unit / 4);
-        ctx.translate(-5, 1);
+        ctx.translate(-5, 3);
         drawWord("high");
         ctx.translate(0, 8)
         drawWord("0000".concat(highscore).substring(highscore.toString().length));
         ctx.restore();
     }
-    ctx.globalCompositeOperation = "source-over";
 
     requestAnimationFrame(draw);
 };
@@ -573,15 +633,37 @@ const ctx = canvas.getContext("2d", {
 window.addEventListener("blur", () => input.pause = true);
 window.addEventListener("focus", () => input.pause = false);
 
-canvas.addEventListener("mousedown", () => input.action = true);
-canvas.addEventListener("mouseup", () => input.action = false);
+const handleTouch = (e) => {
+    dbg(e);
+    const left = e.touches[0].pageX < window.innerWidth / 2;
+    if (left) {
+        input.left = true;
+        input.right = false;
+    } else {
+        input.left = false;
+        input.right = true;
+    }
+};
+canvas.addEventListener("touchstart", (e) => {
+    if (input.gameover) {
+        location.reload();
+    } else {
+        handleTouch(e);
+    }
+});
+canvas.addEventListener("touchmove", handleTouch);
 
-canvas.addEventListener("touchstart", () => input.action = true);
-canvas.addEventListener("touchend", () => input.action = false);
+canvas.addEventListener("touchend", (e) => {
+    input.left = input.right = false;
+});
 
 document.addEventListener("keydown", (e) => {
     if (e.repeat) {
         return;
+    }
+
+    if (input.gameover) {
+        location.reload();
     }
 
     if (["a", "ArrowLeft"].includes(e.key)) {
